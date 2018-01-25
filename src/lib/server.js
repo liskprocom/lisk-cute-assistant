@@ -5,24 +5,33 @@ const exec = require("child_process").exec;
 const respondServerStatus = async () => {
   const serverStatusExec = `
     cd ${settings.liskPWDFolder}
+    echo Lisk status:
     bash lisk.sh status
     echo
-    echo CPU Usage:
-    grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage "%"}'
+-   echo CPU usage:
++   echo Total CPU usage:
+-   grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage "%"}'
++   grep 'cpu ' /proc/stat | awk '{cpu_usage=($2+$4)*100/($2+$4+$5)} END {print cpu_usage " %"}'
     echo
-    echo Disk Usage:
-   
-    df /home | awk '{ print $5 }' | tail -n 1
+-   echo Disk Usage:
++   echo Total RAM usage:
++   free -h | grep Mem | awk '{print $3/$2 * 100 " %"}'
+-   df /home | awk '{ print $5 }' | tail -n 1
++	  echo
++   echo Total of free space on all disks:
++	  df | awk 'BEGIN {} {sum1+=$2;sum2+=$4} END {print (sum2/sum1)*100 " %"}'
     echo
-    echo RAM Usage:
-    free | grep Mem | awk '{print $3/$2 * 100.0}'
-  `;
-
+-   echo RAM Usage:
++   echo Total of free space on /home:
+-   free | grep Mem | awk '{print $3/$2 * 100.0}'
++	  df -h /home | awk 'BEGIN {} {sum1+=$2;sum2+=$4} END {print (sum2/sum1)*100 " %"}'
+   `;
+  
   exec(serverStatusExec, function(err, stdout, stderr) {
     if (err || stderr) {
       bot.sendMessage(
         settings.chatId,
-        `Omg! I didn't manage to correctly check the server status: \n${stderr}`
+        `Oops! I didn't manage to correctly check the server status: \n${stderr}`
       );
       if (stdout)
         bot.sendMessage(
@@ -37,20 +46,20 @@ const respondServerStatus = async () => {
 
 const checkServerStatusCron = async () => {
   const cpuExec = `
-    grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}'
+    grep 'cpu ' /proc/stat | awk '{cpu_usage=($2+$4)*100/($2+$4+$5)} END {print cpu_usage}'
   `;
   const spaceUsageExec = `
-    df / | awk '{ print $5 }' | tail -n 1
+    df | awk 'BEGIN {} {sum1+=$2;sum2+=$4} END {print (sum2/sum1)*100}'
   `;
   const memoryExec = `
-    free | grep Mem | awk '{print $3/$2 * 100.0}'
+    free -h | grep Mem | awk '{print $3/$2 * 100}'
   `;
 
   exec(cpuExec, function(err, stdout, stderr) {
     if (err || stderr) {
       bot.sendMessage(
         settings.chatId,
-        `Omg! I didn't manage to correctly check the cpu status: \n${stderr}`
+        `Oops! I didn't manage to correctly check the cpu status: \n${stderr}`
       );
       if (stdout)
         bot.sendMessage(
@@ -63,7 +72,7 @@ const checkServerStatusCron = async () => {
     if (stdoutValue > settings.cpuThreshold)
       bot.sendMessage(
         settings.chatId,
-        `⚠️ CPU usage % over the threshold! ${stdout}`
+        `⚠️ CPU usage in % is over the threshold! ${stdout}`
       );
   });
 
@@ -71,7 +80,7 @@ const checkServerStatusCron = async () => {
     if (err || stderr) {
       bot.sendMessage(
         settings.chatId,
-        `Omg! I didn't manage to correctly check the space usage: \n${stderr}`
+        `Oops! I didn't manage to correctly check the space usage: \n${stderr}`
       );
       if (stdout)
         bot.sendMessage(
@@ -81,10 +90,10 @@ const checkServerStatusCron = async () => {
       return;
     }
     const stdoutValue = parseInt(stdout);
-    if (stdoutValue > settings.spaceUsageThreshold)
+    if (stdoutValue < settings.spaceUsageThreshold)
       bot.sendMessage(
         settings.chatId,
-        `⚠️ RAM usage % over the threshold! ${stdout}`
+        `⚠️ Total disk space usage in % is under the threshold! ${stdout}`
       );
   });
 
@@ -92,7 +101,7 @@ const checkServerStatusCron = async () => {
     if (err || stderr) {
       bot.sendMessage(
         settings.chatId,
-        `Omg! I didn't manage to correctly check the memory usage: \n${stderr}`
+        `Oops! I didn't manage to correctly check the memory usage: \n${stderr}`
       );
       if (stdout)
         bot.sendMessage(
@@ -105,7 +114,7 @@ const checkServerStatusCron = async () => {
     if (stdoutValue > settings.memoryThreshold)
       bot.sendMessage(
         settings.chatId,
-        `⚠️ Space usage % over the threshold! ${stdout}`
+        `⚠️ Ram usage in % is over the threshold! ${stdout}`
       );
   });
 };
